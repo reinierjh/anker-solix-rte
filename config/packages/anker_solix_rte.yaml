@@ -160,7 +160,7 @@ anker_solix_rte_package:
 
           availability: >-
             {% set entity =
-              'sensor.anker_solix_solarbank_max_ac_015_state_of_charge'
+              'sensor.anker_solix_solarbank_max_ac_015_soc'
             %}
             {{
               states(entity) not in ['unknown', 'unavailable', 'none', '']
@@ -168,13 +168,13 @@ anker_solix_rte_package:
 
           state: >-
             {% set entity =
-              'sensor.anker_solix_solarbank_max_ac_015_state_of_charge'
+              'sensor.anker_solix_solarbank_max_ac_015_soc'
             %}
             {{ states(entity) | float(0) | round(2) }}
 
           attributes:
             source_entity: >-
-              sensor.anker_solix_solarbank_max_ac_015_state_of_charge
+              sensor.anker_solix_solarbank_max_ac_015_soc
             sample_interval: "5 minuten"
 
 
@@ -554,7 +554,7 @@ anker_solix_rte_package:
             %}
             {% if capacity <= 0 %}
               Capaciteit niet beschikbaar
-            {% elif states('sensor.anker_solix_solarbank_max_ac_015_state_of_charge')
+            {% elif states('sensor.anker_solix_solarbank_max_ac_015_soc')
                       in ['unknown', 'unavailable', 'none', '']
             %}
               SOC niet beschikbaar
@@ -568,7 +568,7 @@ anker_solix_rte_package:
             {% endif %}
 
           attributes:
-            soc_entity: sensor.anker_solix_solarbank_max_ac_015_state_of_charge
+            soc_entity: sensor.anker_solix_solarbank_max_ac_015_soc
             usable_capacity_kwh: >-
               {{
                 states('sensor.anker_solix_usable_capacity_auto')

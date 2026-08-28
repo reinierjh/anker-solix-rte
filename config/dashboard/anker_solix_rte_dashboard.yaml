@@ -122,7 +122,7 @@ views:
                 secondary_info: "Maximaal laadniveau (%)"
               - entity: number.anker_solix_solarbank_max_ac_015_discharge_limit
                 secondary_info: "Minimaal ontlaadniveau (%)"
-              - entity: sensor.anker_solix_solarbank_max_ac_015_state_of_charge
+              - entity: sensor.anker_solix_solarbank_max_ac_015_soc
                 secondary_info: "SOC-bron (live batterijlading)"
               - type: divider
               - sensor.anker_solix_charged_rolling_7d
