@@ -1,0 +1,684 @@
+anker_solix_rte_package:
+  ###############################################################################
+  # Anker Solix Solarbank MAX AC
+  # Rolling round-trip-efficiency met SOC-correctie
+  #
+  # Plaats als:
+  #   config/packages/anker_solix_rte.yaml
+  #
+  # configuration.yaml:
+  #   homeassistant:
+  #     packages: !include_dir_merge_named packages
+  #
+  # Werking:
+  # - Elke 5 minuten worden lading, ontlading en SOC bemonsterd.
+  # - Statistics-sensoren berekenen veranderingen over 7, 30 en 90 dagen.
+  # - De SOC-verandering wordt omgerekend naar opgeslagen energie.
+  # - De RTE wordt berekend met een symmetrisch verliesmodel:
+  #
+  #       delta_E = sqrt(RTE) * charge - discharge / sqrt(RTE)
+  #
+  #   Opgelost naar RTE:
+  #
+  #       x   = (delta_E + sqrt(delta_E^2 + 4 * charge * discharge))
+  #             / (2 * charge)
+  #
+  #       RTE = x^2
+  #
+  #   Hierbij geldt:
+  #       x = laad- en ontlaadefficiëntie
+  #
+  ###############################################################################
+  # LET OP: er mag maar één 'template:'-sleutel per bestand bestaan.
+  # De sampling-sensoren (met trigger) en de RTE-sensoren staan daarom in één
+  # gecombineerd template-blok met twee lijstitems.
+  ###############################################################################
+
+  input_number:
+
+    anker_solix_usable_capacity:
+      name: Anker Solix bruikbare capaciteit
+      icon: mdi:battery-high
+      min: 0
+      max: 100
+      step: 0.1
+      initial: 0
+      unit_of_measurement: kWh
+      mode: box
+
+    anker_solix_rte_minimum_charge:
+      name: Anker Solix minimale geladen energie voor RTE
+      icon: mdi:chart-bell-curve-cumulative
+      min: 0.1
+      max: 100
+      step: 0.1
+      initial: 1
+      unit_of_measurement: kWh
+      mode: box
+
+
+  input_text:
+
+    anker_solix_soc_entity:
+      name: Anker Solix SOC-entiteit
+      icon: mdi:battery-heart-variant
+      initial: sensor.anker_solix_solarbank_max_ac_015_state_of_charge
+      max: 255
+
+
+  ###############################################################################
+  # Templates: sampling + RTE-berekening (één gecombineerd blok)
+  #
+  # Iedere 5 minuten een sample vastleggen.
+  # De energiewaarden worden automatisch naar kWh omgerekend wanneer de
+  # bronsensor Wh gebruikt.
+  ###############################################################################
+
+  template:
+
+    - trigger:
+        - platform: time_pattern
+          minutes: "/5"
+
+        - platform: homeassistant
+          event: start
+
+      sensor:
+
+        #########################################################################
+        # Cumulatief geladen energie
+        #########################################################################
+
+        - name: Anker Solix charging energy sampled
+          unique_id: anker_solix_charging_energy_sampled
+          icon: mdi:battery-arrow-up
+          device_class: energy
+          state_class: total_increasing
+          unit_of_measurement: kWh
+
+          availability: >-
+            {{
+              states(
+                'sensor.anker_solix_solarbank_max_ac_015_battery_charging_energy'
+              )
+              not in ['unknown', 'unavailable', 'none', '']
+            }}
+
+          state: >-
+            {% set entity =
+              'sensor.anker_solix_solarbank_max_ac_015_battery_charging_energy'
+            %}
+            {% set value = states(entity) | float(0) %}
+            {% set unit = state_attr(entity, 'unit_of_measurement') | default('', true) %}
+
+            {% if unit == 'Wh' %}
+              {{ (value / 1000) | round(6) }}
+            {% elif unit == 'MWh' %}
+              {{ (value * 1000) | round(6) }}
+            {% else %}
+              {{ value | round(6) }}
+            {% endif %}
+
+          attributes:
+            source_entity: >-
+              sensor.anker_solix_solarbank_max_ac_015_battery_charging_energy
+            source_unit: >-
+              {{
+                state_attr(
+                  'sensor.anker_solix_solarbank_max_ac_015_battery_charging_energy',
+                  'unit_of_measurement'
+                )
+              }}
+            sample_interval: "5 minuten"
+
+
+        #########################################################################
+        # Cumulatief ontladen energie
+        #########################################################################
+
+        - name: Anker Solix discharging energy sampled
+          unique_id: anker_solix_discharging_energy_sampled
+          icon: mdi:battery-arrow-down
+          device_class: energy
+          state_class: total_increasing
+          unit_of_measurement: kWh
+
+          availability: >-
+            {{
+              states(
+                'sensor.anker_solix_solarbank_max_ac_015_battery_discharge_energy'
+              )
+              not in ['unknown', 'unavailable', 'none', '']
+            }}
+
+          state: >-
+            {% set entity =
+              'sensor.anker_solix_solarbank_max_ac_015_battery_discharge_energy'
+            %}
+            {% set value = states(entity) | float(0) %}
+            {% set unit = state_attr(entity, 'unit_of_measurement') | default('', true) %}
+
+            {% if unit == 'Wh' %}
+              {{ (value / 1000) | round(6) }}
+            {% elif unit == 'MWh' %}
+              {{ (value * 1000) | round(6) }}
+            {% else %}
+              {{ value | round(6) }}
+            {% endif %}
+
+          attributes:
+            source_entity: >-
+              sensor.anker_solix_solarbank_max_ac_015_battery_discharge_energy
+            source_unit: >-
+              {{
+                state_attr(
+                  'sensor.anker_solix_solarbank_max_ac_015_battery_discharge_energy',
+                  'unit_of_measurement'
+                )
+              }}
+            sample_interval: "5 minuten"
+
+
+        #########################################################################
+        # SOC-sample
+        #########################################################################
+
+        - name: Anker Solix SOC sampled
+          unique_id: anker_solix_soc_sampled
+          icon: mdi:battery
+          device_class: battery
+          state_class: measurement
+          unit_of_measurement: "%"
+
+          availability: >-
+            {% set entity =
+              states('input_text.anker_solix_soc_entity') | trim
+            %}
+            {{
+              entity.startswith('sensor.')
+              and states(entity) not in ['unknown', 'unavailable', 'none', '']
+            }}
+
+          state: >-
+            {% set entity =
+              states('input_text.anker_solix_soc_entity') | trim
+            %}
+            {{ states(entity) | float(0) | round(2) }}
+
+          attributes:
+            source_entity: >-
+              {{ states('input_text.anker_solix_soc_entity') | trim }}
+            sample_interval: "5 minuten"
+
+
+    ###############################################################################
+    # RTE- en diagnostische templatesensoren
+    #
+    # 5-minutensamples:
+    # - 7 dagen:  2.016 samples, buffer 2.200
+    # - 30 dagen: 8.640 samples, buffer 9.000
+    # - 90 dagen: 25.920 samples, buffer 27.000
+    ###############################################################################
+    - sensor:
+
+        #########################################################################
+        # 7 dagen
+        #########################################################################
+
+        - name: Anker Solix RTE rolling 7d
+          unique_id: anker_solix_rte_rolling_7d
+          icon: mdi:battery-sync
+          state_class: measurement
+          unit_of_measurement: "%"
+
+          availability: >-
+            {% set capacity =
+              states('input_number.anker_solix_usable_capacity') | float(0)
+            %}
+            {% set minimum =
+              states('input_number.anker_solix_rte_minimum_charge') | float(1)
+            %}
+            {% set charge =
+              states('sensor.anker_solix_charged_rolling_7d') | float(0)
+            %}
+            {% set discharge =
+              states('sensor.anker_solix_discharged_rolling_7d') | float(-1)
+            %}
+            {{
+              capacity > 0
+              and charge >= minimum
+              and discharge >= 0
+              and states('sensor.anker_solix_soc_change_rolling_7d')
+                  not in ['unknown', 'unavailable', 'none', '']
+            }}
+
+          state: >-
+            {% set capacity =
+              states('input_number.anker_solix_usable_capacity') | float(0)
+            %}
+            {% set charge =
+              states('sensor.anker_solix_charged_rolling_7d') | float(0)
+            %}
+            {% set discharge =
+              states('sensor.anker_solix_discharged_rolling_7d') | float(0)
+            %}
+            {% set soc_change =
+              states('sensor.anker_solix_soc_change_rolling_7d') | float(0)
+            %}
+            {% set stored_change = capacity * soc_change / 100 %}
+            {% set discriminant =
+              stored_change * stored_change + 4 * charge * discharge
+            %}
+            {% set efficiency =
+              (
+                (
+                  stored_change + sqrt([discriminant, 0] | max)
+                )
+                / (2 * charge)
+              ) ** 2
+            %}
+            {{ (efficiency * 100) | round(1) }}
+
+          attributes:
+            charged_energy_kwh: >-
+              {{
+                states('sensor.anker_solix_charged_rolling_7d')
+                | float(0) | round(3)
+              }}
+            discharged_energy_kwh: >-
+              {{
+                states('sensor.anker_solix_discharged_rolling_7d')
+                | float(0) | round(3)
+              }}
+            soc_change_percentage_points: >-
+              {{
+                states('sensor.anker_solix_soc_change_rolling_7d')
+                | float(0) | round(2)
+              }}
+            stored_energy_change_kwh: >-
+              {% set capacity =
+                states('input_number.anker_solix_usable_capacity') | float(0)
+              %}
+              {% set soc_change =
+                states('sensor.anker_solix_soc_change_rolling_7d') | float(0)
+              %}
+              {{ (capacity * soc_change / 100) | round(3) }}
+            uncorrected_rte: >-
+              {% set charge =
+                states('sensor.anker_solix_charged_rolling_7d') | float(0)
+              %}
+              {% set discharge =
+                states('sensor.anker_solix_discharged_rolling_7d') | float(0)
+              %}
+              {% if charge > 0 %}
+                {{ (discharge / charge * 100) | round(1) }}
+              {% else %}
+                unavailable
+              {% endif %}
+            calculation_model: symmetric_charge_discharge_efficiency
+
+
+        #########################################################################
+        # 30 dagen
+        #########################################################################
+
+        - name: Anker Solix RTE rolling 30d
+          unique_id: anker_solix_rte_rolling_30d
+          icon: mdi:battery-sync
+          state_class: measurement
+          unit_of_measurement: "%"
+
+          availability: >-
+            {% set capacity =
+              states('input_number.anker_solix_usable_capacity') | float(0)
+            %}
+            {% set minimum =
+              states('input_number.anker_solix_rte_minimum_charge') | float(1)
+            %}
+            {% set charge =
+              states('sensor.anker_solix_charged_rolling_30d') | float(0)
+            %}
+            {% set discharge =
+              states('sensor.anker_solix_discharged_rolling_30d') | float(-1)
+            %}
+            {{
+              capacity > 0
+              and charge >= minimum
+              and discharge >= 0
+              and states('sensor.anker_solix_soc_change_rolling_30d')
+                  not in ['unknown', 'unavailable', 'none', '']
+            }}
+
+          state: >-
+            {% set capacity =
+              states('input_number.anker_solix_usable_capacity') | float(0)
+            %}
+            {% set charge =
+              states('sensor.anker_solix_charged_rolling_30d') | float(0)
+            %}
+            {% set discharge =
+              states('sensor.anker_solix_discharged_rolling_30d') | float(0)
+            %}
+            {% set soc_change =
+              states('sensor.anker_solix_soc_change_rolling_30d') | float(0)
+            %}
+            {% set stored_change = capacity * soc_change / 100 %}
+            {% set discriminant =
+              stored_change * stored_change + 4 * charge * discharge
+            %}
+            {% set efficiency =
+              (
+                (
+                  stored_change + sqrt([discriminant, 0] | max)
+                )
+                / (2 * charge)
+              ) ** 2
+            %}
+            {{ (efficiency * 100) | round(1) }}
+
+          attributes:
+            charged_energy_kwh: >-
+              {{
+                states('sensor.anker_solix_charged_rolling_30d')
+                | float(0) | round(3)
+              }}
+            discharged_energy_kwh: >-
+              {{
+                states('sensor.anker_solix_discharged_rolling_30d')
+                | float(0) | round(3)
+              }}
+            soc_change_percentage_points: >-
+              {{
+                states('sensor.anker_solix_soc_change_rolling_30d')
+                | float(0) | round(2)
+              }}
+            stored_energy_change_kwh: >-
+              {% set capacity =
+                states('input_number.anker_solix_usable_capacity') | float(0)
+              %}
+              {% set soc_change =
+                states('sensor.anker_solix_soc_change_rolling_30d') | float(0)
+              %}
+              {{ (capacity * soc_change / 100) | round(3) }}
+            uncorrected_rte: >-
+              {% set charge =
+                states('sensor.anker_solix_charged_rolling_30d') | float(0)
+              %}
+              {% set discharge =
+                states('sensor.anker_solix_discharged_rolling_30d') | float(0)
+              %}
+              {% if charge > 0 %}
+                {{ (discharge / charge * 100) | round(1) }}
+              {% else %}
+                unavailable
+              {% endif %}
+            calculation_model: symmetric_charge_discharge_efficiency
+
+
+        #########################################################################
+        # 90 dagen
+        #########################################################################
+
+        - name: Anker Solix RTE rolling 90d
+          unique_id: anker_solix_rte_rolling_90d
+          icon: mdi:battery-sync
+          state_class: measurement
+          unit_of_measurement: "%"
+
+          availability: >-
+            {% set capacity =
+              states('input_number.anker_solix_usable_capacity') | float(0)
+            %}
+            {% set minimum =
+              states('input_number.anker_solix_rte_minimum_charge') | float(1)
+            %}
+            {% set charge =
+              states('sensor.anker_solix_charged_rolling_90d') | float(0)
+            %}
+            {% set discharge =
+              states('sensor.anker_solix_discharged_rolling_90d') | float(-1)
+            %}
+            {{
+              capacity > 0
+              and charge >= minimum
+              and discharge >= 0
+              and states('sensor.anker_solix_soc_change_rolling_90d')
+                  not in ['unknown', 'unavailable', 'none', '']
+            }}
+
+          state: >-
+            {% set capacity =
+              states('input_number.anker_solix_usable_capacity') | float(0)
+            %}
+            {% set charge =
+              states('sensor.anker_solix_charged_rolling_90d') | float(0)
+            %}
+            {% set discharge =
+              states('sensor.anker_solix_discharged_rolling_90d') | float(0)
+            %}
+            {% set soc_change =
+              states('sensor.anker_solix_soc_change_rolling_90d') | float(0)
+            %}
+            {% set stored_change = capacity * soc_change / 100 %}
+            {% set discriminant =
+              stored_change * stored_change + 4 * charge * discharge
+            %}
+            {% set efficiency =
+              (
+                (
+                  stored_change + sqrt([discriminant, 0] | max)
+                )
+                / (2 * charge)
+              ) ** 2
+            %}
+            {{ (efficiency * 100) | round(1) }}
+
+          attributes:
+            charged_energy_kwh: >-
+              {{
+                states('sensor.anker_solix_charged_rolling_90d')
+                | float(0) | round(3)
+              }}
+            discharged_energy_kwh: >-
+              {{
+                states('sensor.anker_solix_discharged_rolling_90d')
+                | float(0) | round(3)
+              }}
+            soc_change_percentage_points: >-
+              {{
+                states('sensor.anker_solix_soc_change_rolling_90d')
+                | float(0) | round(2)
+              }}
+            stored_energy_change_kwh: >-
+              {% set capacity =
+                states('input_number.anker_solix_usable_capacity') | float(0)
+              %}
+              {% set soc_change =
+                states('sensor.anker_solix_soc_change_rolling_90d') | float(0)
+              %}
+              {{ (capacity * soc_change / 100) | round(3) }}
+            uncorrected_rte: >-
+              {% set charge =
+                states('sensor.anker_solix_charged_rolling_90d') | float(0)
+              %}
+              {% set discharge =
+                states('sensor.anker_solix_discharged_rolling_90d') | float(0)
+              %}
+              {% if charge > 0 %}
+                {{ (discharge / charge * 100) | round(1) }}
+              {% else %}
+                unavailable
+              {% endif %}
+            calculation_model: symmetric_charge_discharge_efficiency
+
+
+        #########################################################################
+        # Diagnose
+        #########################################################################
+
+        - name: Anker Solix RTE status
+          unique_id: anker_solix_rte_status
+          icon: mdi:clipboard-pulse-outline
+
+          state: >-
+            {% set capacity =
+              states('input_number.anker_solix_usable_capacity') | float(0)
+            %}
+            {% set soc_entity =
+              states('input_text.anker_solix_soc_entity') | trim
+            %}
+            {% if capacity <= 0 %}
+              Capaciteit instellen
+            {% elif not soc_entity.startswith('sensor.') %}
+              SOC-entiteit instellen
+            {% elif states(soc_entity) in ['unknown', 'unavailable', 'none', ''] %}
+              SOC niet beschikbaar
+            {% elif states('sensor.anker_solix_charged_rolling_7d') | float(0)
+                    <
+                    states('input_number.anker_solix_rte_minimum_charge') | float(1)
+            %}
+              Onvoldoende laadenergie
+            {% else %}
+              Actief
+            {% endif %}
+
+          attributes:
+            soc_entity: >-
+              {{ states('input_text.anker_solix_soc_entity') | trim }}
+            usable_capacity_kwh: >-
+              {{
+                states('input_number.anker_solix_usable_capacity')
+                | float(0)
+              }}
+            minimum_charge_kwh: >-
+              {{
+                states('input_number.anker_solix_rte_minimum_charge')
+                | float(1)
+              }}
+            charge_source: >-
+              sensor.anker_solix_solarbank_max_ac_015_battery_charging_energy
+            discharge_source: >-
+              sensor.anker_solix_solarbank_max_ac_015_battery_discharge_energy
+
+
+  ###############################################################################
+  # Rolling Statistics-sensoren
+  #
+  # De statistics-sensoren voeden de RTE-templates hierboven en hoeven dus na
+  # de template-sleutel te staan (de sleutelvolgorde in YAML is niet relevant).
+  ###############################################################################
+
+  sensor:
+
+    ###########################################################################
+    # 7 dagen
+    ###########################################################################
+
+    - platform: statistics
+      name: Anker Solix charged rolling 7d
+      unique_id: anker_solix_charged_rolling_7d
+      entity_id: sensor.anker_solix_charging_energy_sampled
+      state_characteristic: sum_differences_nonnegative
+      max_age:
+        days: 7
+      sampling_size: 2200
+      keep_last_sample: true
+      precision: 4
+
+    - platform: statistics
+      name: Anker Solix discharged rolling 7d
+      unique_id: anker_solix_discharged_rolling_7d
+      entity_id: sensor.anker_solix_discharging_energy_sampled
+      state_characteristic: sum_differences_nonnegative
+      max_age:
+        days: 7
+      sampling_size: 2200
+      keep_last_sample: true
+      precision: 4
+
+    - platform: statistics
+      name: Anker Solix SOC change rolling 7d
+      unique_id: anker_solix_soc_change_rolling_7d
+      entity_id: sensor.anker_solix_soc_sampled
+      state_characteristic: change
+      max_age:
+        days: 7
+      sampling_size: 2200
+      keep_last_sample: true
+      precision: 2
+
+
+    ###########################################################################
+    # 30 dagen
+    ###########################################################################
+
+    - platform: statistics
+      name: Anker Solix charged rolling 30d
+      unique_id: anker_solix_charged_rolling_30d
+      entity_id: sensor.anker_solix_charging_energy_sampled
+      state_characteristic: sum_differences_nonnegative
+      max_age:
+        days: 30
+      sampling_size: 9000
+      keep_last_sample: true
+      precision: 4
+
+    - platform: statistics
+      name: Anker Solix discharged rolling 30d
+      unique_id: anker_solix_discharged_rolling_30d
+      entity_id: sensor.anker_solix_discharging_energy_sampled
+      state_characteristic: sum_differences_nonnegative
+      max_age:
+        days: 30
+      sampling_size: 9000
+      keep_last_sample: true
+      precision: 4
+
+    - platform: statistics
+      name: Anker Solix SOC change rolling 30d
+      unique_id: anker_solix_soc_change_rolling_30d
+      entity_id: sensor.anker_solix_soc_sampled
+      state_characteristic: change
+      max_age:
+        days: 30
+      sampling_size: 9000
+      keep_last_sample: true
+      precision: 2
+
+
+    ###########################################################################
+    # 90 dagen
+    ###########################################################################
+
+    - platform: statistics
+      name: Anker Solix charged rolling 90d
+      unique_id: anker_solix_charged_rolling_90d
+      entity_id: sensor.anker_solix_charging_energy_sampled
+      state_characteristic: sum_differences_nonnegative
+      max_age:
+        days: 90
+      sampling_size: 27000
+      keep_last_sample: true
+      precision: 4
+
+    - platform: statistics
+      name: Anker Solix discharged rolling 90d
+      unique_id: anker_solix_discharged_rolling_90d
+      entity_id: sensor.anker_solix_discharging_energy_sampled
+      state_characteristic: sum_differences_nonnegative
+      max_age:
+        days: 90
+      sampling_size: 27000
+      keep_last_sample: true
+      precision: 4
+
+    - platform: statistics
+      name: Anker Solix SOC change rolling 90d
+      unique_id: anker_solix_soc_change_rolling_90d
+      entity_id: sensor.anker_solix_soc_sampled
+      state_characteristic: change
+      max_age:
+        days: 90
+      sampling_size: 27000
+      keep_last_sample: true
+      precision: 2

@@ -1,0 +1,126 @@
+###############################################################################
+# Anker Solix Solarbank MAX AC: RTE-dashboard
+#
+# Importeren via een bestaand dashboard:
+#   Bewerken (potlood) -> drie puntjes -> "Raw configuration editor"
+#   -> volledige inhoud plakken -> Opslaan
+#
+# Of gebruiken als los yaml-dashboard (ui-lovelace.yaml).
+###############################################################################
+title: Anker Solix RTE
+background: dark
+views:
+  - title: Overzicht
+    path: rte
+    icon: mdi:battery-sync
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            content: |
+              ## Anker Solix Solarbank MAX AC
+
+              Rollende **round-trip-efficiency** met SOC-correctie over
+              7, 30 en 90 dagen.
+
+              De berekening corrigeert voor de energie die bij begin en einde
+              nog in de batterij zit (SOC-verandering x bruikbare capaciteit).
+              Zonder die correctie zou een batterij die gedeeltelijk geladen
+              begint/ophoudt een te lage RTE laten zien.
+          - type: picture-entity
+            entity: sensor.anker_solix_soc_sampled
+            name: Anker Solix Solarbank MAX AC
+            image: /local/anker-solix-solarbank-max-ac.webp
+            show_name: true
+            show_state: true
+
+      - type: grid
+        columns: 3
+        cards:
+          - type: gauge
+            entity: sensor.anker_solix_rte_rolling_7d
+            name: RTE 7d
+            min: 0
+            max: 100
+            severity:
+              green: 85
+              yellow: 70
+              red: 0
+          - type: gauge
+            entity: sensor.anker_solix_rte_rolling_30d
+            name: RTE 30d
+            min: 0
+            max: 100
+            severity:
+              green: 85
+              yellow: 70
+              red: 0
+          - type: gauge
+            entity: sensor.anker_solix_rte_rolling_90d
+            name: RTE 90d
+            min: 0
+            max: 100
+            severity:
+              green: 85
+              yellow: 70
+              red: 0
+
+      - type: grid
+        cards:
+          - type: statistics-graph
+            title: RTE over tijd (gemiddelde per dag)
+            days_to_show: 90
+            stat_types:
+              - mean
+            entities:
+              - entity: sensor.anker_solix_rte_rolling_7d
+                name: RTE 7d
+              - entity: sensor.anker_solix_rte_rolling_30d
+                name: RTE 30d
+              - entity: sensor.anker_solix_rte_rolling_90d
+                name: RTE 90d
+
+      - type: grid
+        cards:
+          - type: history-graph
+            title: Geladen en ontladen energie (7 dagen)
+            days_to_show: 7
+            entities:
+              - entity: sensor.anker_solix_charging_energy_sampled
+                name: Geladen (kWh)
+              - entity: sensor.anker_solix_discharging_energy_sampled
+                name: Ontladen (kWh)
+
+      - type: grid
+        cards:
+          - type: glance
+            title: Status
+            entities:
+              - entity: sensor.anker_solix_soc_sampled
+                name: SOC
+              - entity: sensor.anker_solix_rte_rolling_7d
+                name: RTE 7d
+              - entity: sensor.anker_solix_rte_rolling_30d
+                name: RTE 30d
+              - entity: sensor.anker_solix_rte_rolling_90d
+                name: RTE 90d
+              - entity: sensor.anker_solix_rte_status
+                name: Status
+
+      - type: grid
+        cards:
+          - type: entities
+            title: Instellingen en diagnose
+            entities:
+              - sensor.anker_solix_rte_status
+              - entity: input_number.anker_solix_usable_capacity
+                secondary_info: "Bruikbare capaciteit van jouw batterij (kWh)"
+              - entity: input_number.anker_solix_rte_minimum_charge
+                secondary_info: "Minimum geladen energie voordat RTE wordt berekend"
+              - entity: input_text.anker_solix_soc_entity
+                secondary_info: "Entiteit-id van de SOC-bron"
+              - type: divider
+              - sensor.anker_solix_charged_rolling_7d
+              - sensor.anker_solix_discharged_rolling_7d
+              - sensor.anker_solix_soc_change_rolling_7d
