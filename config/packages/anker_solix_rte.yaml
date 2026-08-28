@@ -37,6 +37,7 @@ anker_solix_rte_package:
   input_number:
 
     anker_solix_rte_minimum_charge:
+      unique_id: anker_solix_rte_minimum_charge
       name: Anker Solix minimale geladen energie voor RTE
       icon: mdi:chart-bell-curve-cumulative
       min: 0.1
@@ -50,6 +51,7 @@ anker_solix_rte_package:
   input_text:
 
     anker_solix_soc_entity:
+      unique_id: anker_solix_soc_entity
       name: Anker Solix SOC-entiteit
       icon: mdi:battery-heart-variant
       initial: sensor.anker_solix_solarbank_max_ac_015_state_of_charge
