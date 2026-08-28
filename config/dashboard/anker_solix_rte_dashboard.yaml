@@ -117,13 +117,17 @@ views:
               - entity: sensor.anker_solix_usable_capacity_auto
                 secondary_info: "Berekend uit batterijcapaciteit en werkbereik"
               - entity: sensor.anker_solix_solarbank_max_ac_015_battery_capacity
-                secondary_info: "Totale batterijcapaciteit (bron)"
+                name: Batterijcapaciteit
+                secondary_info: "Totale capaciteit (bron)"
               - entity: number.anker_solix_solarbank_max_ac_015_charging_limit
+                name: Laadlimiet
                 secondary_info: "Maximaal laadniveau (%)"
               - entity: number.anker_solix_solarbank_max_ac_015_discharge_limit
+                name: Ontlaadlimiet
                 secondary_info: "Minimaal ontlaadniveau (%)"
               - entity: sensor.anker_solix_solarbank_max_ac_015_soc
-                secondary_info: "SOC-bron (live batterijlading)"
+                name: SOC
+                secondary_info: "Live batterijlading (bron)"
               - type: divider
               - sensor.anker_solix_charged_rolling_7d
               - sensor.anker_solix_discharged_rolling_7d
