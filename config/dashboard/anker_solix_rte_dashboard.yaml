@@ -31,7 +31,7 @@ views:
           - type: picture-entity
             entity: sensor.anker_solix_soc_sampled
             name: Anker Solix Solarbank MAX AC
-            image: /local/anker-solix-solarbank-max-ac.webp
+            image: /local/anker-solix-solarbank-max-ac.jpg
             show_name: true
             show_state: true
 
@@ -114,8 +114,14 @@ views:
             title: Instellingen en diagnose
             entities:
               - sensor.anker_solix_rte_status
-              - entity: input_number.anker_solix_usable_capacity
-                secondary_info: "Bruikbare capaciteit van jouw batterij (kWh)"
+              - entity: sensor.anker_solix_usable_capacity_auto
+                secondary_info: "Berekend uit batterijcapaciteit en werkbereik"
+              - entity: sensor.anker_solix_solarbank_max_ac_015_battery_capacity
+                secondary_info: "Totale batterijcapaciteit (bron)"
+              - entity: number.anker_solix_solarbank_max_ac_015_charging_limit
+                secondary_info: "Maximaal laadniveau (%)"
+              - entity: number.anker_solix_solarbank_max_ac_015_discharge_limit
+                secondary_info: "Minimaal ontlaadniveau (%)"
               - entity: input_number.anker_solix_rte_minimum_charge
                 secondary_info: "Minimum geladen energie voordat RTE wordt berekend"
               - entity: input_text.anker_solix_soc_entity

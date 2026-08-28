@@ -36,16 +36,6 @@ anker_solix_rte_package:
 
   input_number:
 
-    anker_solix_usable_capacity:
-      name: Anker Solix bruikbare capaciteit
-      icon: mdi:battery-high
-      min: 0
-      max: 100
-      step: 0.1
-      initial: 0
-      unit_of_measurement: kWh
-      mode: box
-
     anker_solix_rte_minimum_charge:
       name: Anker Solix minimale geladen energie voor RTE
       icon: mdi:chart-bell-curve-cumulative
@@ -222,6 +212,76 @@ anker_solix_rte_package:
     - sensor:
 
         #########################################################################
+        # Bruikbare capaciteit (automatisch): batterijcapaciteit x werkbereik
+        #
+        #   werkbereik = charging_limit - discharge_limit (beide in %)
+        #   batterijcapaciteit wordt omgerekend van Wh naar kWh indien nodig
+        #########################################################################
+
+        - name: Anker Solix usable capacity auto
+          unique_id: anker_solix_usable_capacity_auto
+          icon: mdi:battery-high
+          device_class: energy
+          state_class: measurement
+          unit_of_measurement: kWh
+
+          availability: >-
+            {% set battery =
+              states('sensor.anker_solix_solarbank_max_ac_015_battery_capacity')
+            %}
+            {% set charging =
+              states('number.anker_solix_solarbank_max_ac_015_charging_limit')
+            %}
+            {% set discharging =
+              states('number.anker_solix_solarbank_max_ac_015_discharge_limit')
+            %}
+            {{
+              battery not in ['unknown', 'unavailable', 'none', '']
+              and charging not in ['unknown', 'unavailable', 'none', '']
+              and discharging not in ['unknown', 'unavailable', 'none', '']
+              and charging | float(0) > discharging | float(0)
+            }}
+
+          state: >-
+            {% set entity =
+              'sensor.anker_solix_solarbank_max_ac_015_battery_capacity'
+            %}
+            {% set value = states(entity) | float(0) %}
+            {% set unit = state_attr(entity, 'unit_of_measurement') | default('', true) %}
+
+            {% if unit == 'Wh' %}
+              {% set capacity = value / 1000 %}
+            {% elif unit == 'MWh' %}
+              {% set capacity = value * 1000 %}
+            {% else %}
+              {% set capacity = value %}
+            {% endif %}
+
+            {% set charging_limit =
+              states('number.anker_solix_solarbank_max_ac_015_charging_limit')
+              | float(0)
+            %}
+            {% set discharge_limit =
+              states('number.anker_solix_solarbank_max_ac_015_discharge_limit')
+              | float(0)
+            %}
+            {{ (capacity * (charging_limit - discharge_limit) / 100) | round(3) }}
+
+          attributes:
+            battery_capacity_source: >-
+              sensor.anker_solix_solarbank_max_ac_015_battery_capacity
+            charging_limit_percentage: >-
+              {{
+                states('number.anker_solix_solarbank_max_ac_015_charging_limit')
+                | float(0)
+              }}
+            discharge_limit_percentage: >-
+              {{
+                states('number.anker_solix_solarbank_max_ac_015_discharge_limit')
+                | float(0)
+              }}
+
+        #########################################################################
         # 7 dagen
         #########################################################################
 
@@ -233,7 +293,7 @@ anker_solix_rte_package:
 
           availability: >-
             {% set capacity =
-              states('input_number.anker_solix_usable_capacity') | float(0)
+              states('sensor.anker_solix_usable_capacity_auto') | float(0)
             %}
             {% set minimum =
               states('input_number.anker_solix_rte_minimum_charge') | float(1)
@@ -254,7 +314,7 @@ anker_solix_rte_package:
 
           state: >-
             {% set capacity =
-              states('input_number.anker_solix_usable_capacity') | float(0)
+              states('sensor.anker_solix_usable_capacity_auto') | float(0)
             %}
             {% set charge =
               states('sensor.anker_solix_charged_rolling_7d') | float(0)
@@ -297,7 +357,7 @@ anker_solix_rte_package:
               }}
             stored_energy_change_kwh: >-
               {% set capacity =
-                states('input_number.anker_solix_usable_capacity') | float(0)
+                states('sensor.anker_solix_usable_capacity_auto') | float(0)
               %}
               {% set soc_change =
                 states('sensor.anker_solix_soc_change_rolling_7d') | float(0)
@@ -330,7 +390,7 @@ anker_solix_rte_package:
 
           availability: >-
             {% set capacity =
-              states('input_number.anker_solix_usable_capacity') | float(0)
+              states('sensor.anker_solix_usable_capacity_auto') | float(0)
             %}
             {% set minimum =
               states('input_number.anker_solix_rte_minimum_charge') | float(1)
@@ -351,7 +411,7 @@ anker_solix_rte_package:
 
           state: >-
             {% set capacity =
-              states('input_number.anker_solix_usable_capacity') | float(0)
+              states('sensor.anker_solix_usable_capacity_auto') | float(0)
             %}
             {% set charge =
               states('sensor.anker_solix_charged_rolling_30d') | float(0)
@@ -394,7 +454,7 @@ anker_solix_rte_package:
               }}
             stored_energy_change_kwh: >-
               {% set capacity =
-                states('input_number.anker_solix_usable_capacity') | float(0)
+                states('sensor.anker_solix_usable_capacity_auto') | float(0)
               %}
               {% set soc_change =
                 states('sensor.anker_solix_soc_change_rolling_30d') | float(0)
@@ -427,7 +487,7 @@ anker_solix_rte_package:
 
           availability: >-
             {% set capacity =
-              states('input_number.anker_solix_usable_capacity') | float(0)
+              states('sensor.anker_solix_usable_capacity_auto') | float(0)
             %}
             {% set minimum =
               states('input_number.anker_solix_rte_minimum_charge') | float(1)
@@ -448,7 +508,7 @@ anker_solix_rte_package:
 
           state: >-
             {% set capacity =
-              states('input_number.anker_solix_usable_capacity') | float(0)
+              states('sensor.anker_solix_usable_capacity_auto') | float(0)
             %}
             {% set charge =
               states('sensor.anker_solix_charged_rolling_90d') | float(0)
@@ -491,7 +551,7 @@ anker_solix_rte_package:
               }}
             stored_energy_change_kwh: >-
               {% set capacity =
-                states('input_number.anker_solix_usable_capacity') | float(0)
+                states('sensor.anker_solix_usable_capacity_auto') | float(0)
               %}
               {% set soc_change =
                 states('sensor.anker_solix_soc_change_rolling_90d') | float(0)
@@ -522,13 +582,13 @@ anker_solix_rte_package:
 
           state: >-
             {% set capacity =
-              states('input_number.anker_solix_usable_capacity') | float(0)
+              states('sensor.anker_solix_usable_capacity_auto') | float(0)
             %}
             {% set soc_entity =
               states('input_text.anker_solix_soc_entity') | trim
             %}
             {% if capacity <= 0 %}
-              Capaciteit instellen
+              Capaciteit niet beschikbaar
             {% elif not soc_entity.startswith('sensor.') %}
               SOC-entiteit instellen
             {% elif states(soc_entity) in ['unknown', 'unavailable', 'none', ''] %}
@@ -547,7 +607,7 @@ anker_solix_rte_package:
               {{ states('input_text.anker_solix_soc_entity') | trim }}
             usable_capacity_kwh: >-
               {{
-                states('input_number.anker_solix_usable_capacity')
+                states('sensor.anker_solix_usable_capacity_auto')
                 | float(0)
               }}
             minimum_charge_kwh: >-
