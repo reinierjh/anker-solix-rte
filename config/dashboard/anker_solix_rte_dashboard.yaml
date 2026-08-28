@@ -122,10 +122,8 @@ views:
                 secondary_info: "Maximaal laadniveau (%)"
               - entity: number.anker_solix_solarbank_max_ac_015_discharge_limit
                 secondary_info: "Minimaal ontlaadniveau (%)"
-              - entity: input_number.anker_solix_rte_minimum_charge
-                secondary_info: "Minimum geladen energie voordat RTE wordt berekend"
-              - entity: input_text.anker_solix_soc_entity
-                secondary_info: "Entiteit-id van de SOC-bron"
+              - entity: sensor.anker_solix_solarbank_max_ac_015_state_of_charge
+                secondary_info: "SOC-bron (live batterijlading)"
               - type: divider
               - sensor.anker_solix_charged_rolling_7d
               - sensor.anker_solix_discharged_rolling_7d
