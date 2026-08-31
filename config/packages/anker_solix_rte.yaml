@@ -280,7 +280,7 @@ anker_solix_rte_package:
             %}
             {{
               capacity > 0
-              and charge >= capacity
+              and charge >= 1.0
               and discharge >= 0
               and states('sensor.anker_solix_soc_change_rolling_7d')
                   not in ['unknown', 'unavailable', 'none', '']
@@ -374,7 +374,7 @@ anker_solix_rte_package:
             %}
             {{
               capacity > 0
-              and charge >= capacity
+              and charge >= 1.0
               and discharge >= 0
               and states('sensor.anker_solix_soc_change_rolling_30d')
                   not in ['unknown', 'unavailable', 'none', '']
@@ -468,7 +468,7 @@ anker_solix_rte_package:
             %}
             {{
               capacity > 0
-              and charge >= capacity
+              and charge >= 1.0
               and discharge >= 0
               and states('sensor.anker_solix_soc_change_rolling_90d')
                   not in ['unknown', 'unavailable', 'none', '']
@@ -560,7 +560,7 @@ anker_solix_rte_package:
               SOC niet beschikbaar
             {% elif states('sensor.anker_solix_charged_rolling_7d') | float(0)
                     <
-                    capacity
+                    1.0
             %}
               Onvoldoende laadenergie
             {% else %}
@@ -574,11 +574,7 @@ anker_solix_rte_package:
                 states('sensor.anker_solix_usable_capacity_auto')
                 | float(0)
               }}
-            minimum_charge_kwh: >-
-              {{
-                states('sensor.anker_solix_usable_capacity_auto')
-                | float(0)
-              }}
+            minimum_charge_kwh: 1.0
             charge_source: >-
               sensor.anker_solix_solarbank_max_ac_015_battery_charging_energy
             discharge_source: >-
